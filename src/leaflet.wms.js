@@ -2,6 +2,7 @@
  * leaflet.wms.js
  * A collection of Leaflet utilities for working with Web Mapping services.
  * (c) 2014-2016, Houston Engineering, Inc.
+ * 2017, 9Code
  * MIT License
  */
 
@@ -80,21 +81,13 @@ wms.Source = L.Layer.extend({
         this.refreshOverlay();
     },
 
-    'getEvents': function() {
-        if (this.options.identify) {
-            return {'click': this.identify};
-        } else {
-            return {};
-        }
-    },
-
     'setOpacity': function(opacity) {
          this.options.opacity = opacity;
          if (this._overlay) {
              this._overlay.setOpacity(opacity);
          }
     },
-    
+
     'bringToBack': function() {
          this.options.isBack = true;
          if (this._overlay) {
@@ -488,6 +481,75 @@ function ajax(url, callback) {
         }
     }
 }
+
+var identifyHandler = L.Handler.extend({
+    addHooks: function () {
+        L.DomEvent.on(this._map, 'click', this._identify, this);
+    },
+    removeHooks: function () {
+        L.DomEvent.off(this._map, 'click', this._identify, this);
+    },
+    _identify: function (ev) {
+        this._map.eachLayer( function (l) {
+            if (l.options && l.options.identify) {
+                l.identify.call(l, ev)
+            }
+        });
+    }
+});
+
+L.Control.IdentifyControl = L.Control.extend({
+    statics: {
+        TITLE: 'Identify'
+    },
+    options: {
+        position: 'topleft',
+        handler: {}
+    },
+    toggle: function () {
+        if (this.handler.enabled()) {
+            this.handler.disable.call(this.handler);
+            L.DomUtil.removeClass(this._container, 'enabled');
+            console.log('identify disabled');
+        } else {
+            this.handler.enable.call(this.handler);
+            L.DomUtil.addClass(this._container, 'enabled');
+            console.log('identify enabled');
+        }
+    },
+
+    onAdd: function (map) {
+        var link = null;
+        var className = 'leaflet-identify-feature';
+
+        this._container = L.DomUtil.create('div', 'leaflet-identify');
+        this.handler = new identifyHandler(map, this.options.handler);
+        link = L.DomUtil.create('a', className + '-control', this._container);
+        link.href = '#';
+        link.title = link.innerHTML = L.Control.IdentifyControl.TITLE;
+
+        L.DomEvent
+                .addListener(link, 'click', L.DomEvent.stopPropagation)
+                .addListener(link, 'click', L.DomEvent.preventDefault)
+                .addListener(link, 'click', this.toggle, this);
+
+        return this._container;
+    }
+});
+
+L.Map.mergeOptions({
+    identifyControl: false
+});
+
+L.Map.addInitHook(function () {
+    if (this.options.identifyControl) {
+        this.identifyControl = L.Control.identifyControl().addTo(this);
+    }
+});
+
+L.Control.identifyControl = function (options) {
+    return new L.Control.IdentifyControl(options);
+};
 
 return wms;
 

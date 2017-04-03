@@ -490,43 +490,50 @@ var identifyHandler = L.Handler.extend({
         L.DomEvent.off(this._map, 'click', this._identify, this);
     },
     _identify: function (ev) {
+        var found = false;
         this._map.eachLayer( function (l) {
             if (l.options && l.options.identify) {
-                l.identify.call(l, ev)
+                found = true;
+                l.identify.call(l, ev);
             }
         });
+        if (!found) alert(L.Control.IdentifyControl.notFoundMessage);
     }
 });
 
 L.Control.IdentifyControl = L.Control.extend({
     statics: {
-        TITLE: 'Identify'
+        title: 'Identify',
+        notFoundMessage: 'No WMS layers found',
+        icon: 'i'
     },
     options: {
         position: 'topleft',
         handler: {}
     },
+    lastCursorStyle: null,
     toggle: function () {
         if (this.handler.enabled()) {
             this.handler.disable.call(this.handler);
             L.DomUtil.removeClass(this._container, 'enabled');
-            console.log('identify disabled');
+            this._map._container.style.cursor = this.lastCursorStyle;
+//            console.log('identify disabled');
         } else {
             this.handler.enable.call(this.handler);
             L.DomUtil.addClass(this._container, 'enabled');
-            console.log('identify enabled');
+            this.lastCursorStyle = (this._map._container.style.cursor) ? this._map._container.style.cursor : null;
+            this._map._container.style.cursor = 'help';
+//            console.log('identify enabled');
         }
     },
 
     onAdd: function (map) {
-        var link = null;
-        var className = 'leaflet-identify-feature';
-
-        this._container = L.DomUtil.create('div', 'leaflet-identify');
+        this._container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-identify');
         this.handler = new identifyHandler(map, this.options.handler);
-        link = L.DomUtil.create('a', className + '-control', this._container);
+        var link = L.DomUtil.create('a', '', this._container);
         link.href = '#';
-        link.title = link.innerHTML = L.Control.IdentifyControl.TITLE;
+        link.innerHTML = L.Control.IdentifyControl.icon;
+        link.title = L.Control.IdentifyControl.title;
 
         L.DomEvent
                 .addListener(link, 'click', L.DomEvent.stopPropagation)
